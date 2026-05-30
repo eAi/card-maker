@@ -2,18 +2,10 @@
 
 import React from 'react'
 import { Bold, Italic } from 'lucide-react'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Toggle } from '@/components/ui/toggle'
-import { FONT_CATEGORIES, getFontsByCategory, getFontFamilyValue, loadFont } from '@/lib/fonts'
+import { getFontFamilyValue } from '@/lib/fonts'
+import FontPicker from '@/components/FontPicker'
 
 export interface TextStyle {
   fontFamily: string
@@ -29,20 +21,12 @@ interface TextEditorProps {
   onStyleChange: (style: TextStyle) => void
 }
 
-const fontsByCategory = getFontsByCategory()
-
 export default function TextEditor({
   text,
   textStyle,
   onTextChange,
   onStyleChange,
 }: TextEditorProps) {
-  const handleFontChange = async (fontFamily: string) => {
-    // Load font dynamically
-    await loadFont(fontFamily)
-    onStyleChange({ ...textStyle, fontFamily: getFontFamilyValue(fontFamily) })
-  }
-
   const handleFontSizeChange = (value: number[]) => {
     onStyleChange({ ...textStyle, fontSize: value[0] })
   }
@@ -74,33 +58,10 @@ export default function TextEditor({
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-slate-700">Font Family</label>
-        <Select onValueChange={handleFontChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a font">
-              <span style={{ fontFamily: textStyle.fontFamily }}>
-                {textStyle.fontFamily.split("'")[1] || 'Select a font'}
-              </span>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent className="max-h-[300px]">
-            {FONT_CATEGORIES.map((category) => (
-              <SelectGroup key={category.id}>
-                <SelectLabel className="text-xs text-slate-500 uppercase tracking-wider">
-                  {category.label}
-                </SelectLabel>
-                {fontsByCategory[category.id]?.map((font) => (
-                  <SelectItem
-                    key={font.family}
-                    value={font.family}
-                    style={{ fontFamily: getFontFamilyValue(font.family) }}
-                  >
-                    {font.family}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
+        <FontPicker
+          value={textStyle.fontFamily}
+          onChange={fam => onStyleChange({ ...textStyle, fontFamily: getFontFamilyValue(fam) })}
+        />
       </div>
 
       <div className="space-y-2">

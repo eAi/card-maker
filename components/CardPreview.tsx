@@ -8,6 +8,11 @@ import {
   DEFAULT_PAGE_BACKGROUND,
   fillToCSS,
 } from '@/lib/background'
+import {
+  type FrontTextContent,
+  DEFAULT_FRONT_TEXT,
+  computeTextBlockStyle,
+} from '@/lib/frontText'
 
 interface CardPreviewProps {
   cardSizeId: string
@@ -18,6 +23,8 @@ interface CardPreviewProps {
   customSize?: CardSize | null
   twoPerPage?: boolean
   pageBackground?: PageBackground
+  frontMode?: 'image' | 'text'
+  frontText?: FrontTextContent
 }
 
 // A4 landscape in pixels at 96 DPI (for calculating scale)
@@ -113,6 +120,112 @@ function CardBackground({ bg, bleedMm, cardLeft, cardTop, cardWidth, cardHeight,
 
 // ─── Screen preview ───────────────────────────────────────────────────────────
 
+// Renders the content of the front panel (image or text blocks)
+function FrontContent({
+  frontMode = 'image',
+  frontText = DEFAULT_FRONT_TEXT,
+  image,
+  imageScale,
+  rotated = false,
+  panelWidthMm,
+  panelHeightMm,
+}: {
+  frontMode?: 'image' | 'text'
+  frontText?: FrontTextContent
+  image: string | null
+  imageScale: number
+  rotated?: boolean
+  panelWidthMm: number
+  panelHeightMm: number
+}) {
+  const visibleBlocks = frontText.blocks.filter(b => b.text.trim())
+
+  if (frontMode === 'text') {
+    if (rotated) {
+      // Rotated two-per-page: wrap in -90deg inner box, centered vertically
+      return (
+        <div
+          style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              transform: 'rotate(-90deg)',
+              width: `${panelHeightMm}mm`,
+              height: `${panelWidthMm}mm`,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 4mm',
+              overflow: 'hidden',
+              boxSizing: 'border-box',
+            }}
+          >
+            {visibleBlocks.length > 0 ? visibleBlocks.map(block => (
+              <span key={block.id} style={{ ...computeTextBlockStyle(block), marginBottom: '0.15em' }}>
+                {block.text}
+              </span>
+            )) : (
+              <span style={{ color: '#d1d5db', fontSize: '14pt' }}>Your text here</span>
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          top: `${frontText.verticalOffset}%`,
+          left: 0, right: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          padding: '0 4mm',
+          overflow: 'hidden',
+        }}
+      >
+        {visibleBlocks.length > 0 ? visibleBlocks.map(block => (
+          <span key={block.id} style={{ ...computeTextBlockStyle(block), marginBottom: '0.15em' }}>
+            {block.text}
+          </span>
+        )) : (
+          <span style={{ color: '#d1d5db', fontSize: '14pt' }}>Your text here</span>
+        )}
+      </div>
+    )
+  }
+
+  // Image mode
+  if (image) {
+    return (
+      <img
+        src={image}
+        alt="Card front"
+        className="max-h-[80%] max-w-[80%] object-contain"
+        style={{
+          transform: rotated
+            ? `rotate(-90deg) scale(${imageScale / 100})`
+            : `scale(${imageScale / 100})`,
+        }}
+      />
+    )
+  }
+
+  return (
+    <div
+      className="flex flex-col items-center justify-center text-slate-300"
+      style={rotated ? { transform: 'rotate(-90deg)' } : undefined}
+    >
+      <div className="text-4xl">+</div>
+      <div className="mt-2 text-sm">Front Image</div>
+    </div>
+  )
+}
+
 export default function CardPreview({
   cardSizeId,
   image,
@@ -122,6 +235,8 @@ export default function CardPreview({
   customSize,
   twoPerPage = false,
   pageBackground = DEFAULT_PAGE_BACKGROUND,
+  frontMode = 'image',
+  frontText = DEFAULT_FRONT_TEXT,
 }: CardPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [previewScale, setPreviewScale] = useState(0.85)
@@ -230,24 +345,20 @@ export default function CardPreview({
                             style={{ top: `${foldPosition}mm` }}
                           />
 
-                          {/* Top half - Front (image) */}
+                          {/* Top half - Front */}
                           <div
                             className="absolute left-0 top-0 flex items-center justify-center overflow-hidden"
                             style={{ width: `${cardWidth}mm`, height: `${foldPosition}mm` }}
                           >
-                            {image ? (
-                              <img
-                                src={image}
-                                alt="Card front"
-                                className="max-h-[80%] max-w-[80%] object-contain"
-                                style={{ transform: `rotate(-90deg) scale(${imageScale / 100})` }}
-                              />
-                            ) : (
-                              <div className="flex flex-col items-center justify-center text-slate-300" style={{ transform: 'rotate(-90deg)' }}>
-                                <div className="text-4xl">+</div>
-                                <div className="mt-2 text-sm">Front Image</div>
-                              </div>
-                            )}
+                            <FrontContent
+                              frontMode={frontMode}
+                              frontText={frontText}
+                              image={image}
+                              imageScale={imageScale}
+                              rotated={true}
+                              panelWidthMm={cardWidth}
+                              panelHeightMm={foldPosition}
+                            />
                           </div>
 
                           {/* Bottom half - Back (text) */}
@@ -303,24 +414,19 @@ export default function CardPreview({
                             )}
                           </div>
 
-                          {/* Right half - Front (image) */}
+                          {/* Right half - Front */}
                           <div
                             className="absolute right-0 top-0 flex h-full items-center justify-center overflow-hidden"
                             style={{ width: '50%' }}
                           >
-                            {image ? (
-                              <img
-                                src={image}
-                                alt="Card front"
-                                className="max-h-[80%] max-w-[80%] object-contain"
-                                style={{ transform: `scale(${imageScale / 100})` }}
-                              />
-                            ) : (
-                              <div className="flex flex-col items-center justify-center text-slate-300">
-                                <div className="text-4xl">+</div>
-                                <div className="mt-2 text-sm">Front Image</div>
-                              </div>
-                            )}
+                            <FrontContent
+                              frontMode={frontMode}
+                              frontText={frontText}
+                              image={image}
+                              imageScale={imageScale}
+                              panelWidthMm={cardWidth / 2}
+                              panelHeightMm={cardHeight}
+                            />
                           </div>
                         </>
                       )}
@@ -419,24 +525,19 @@ export default function CardPreview({
                 )}
               </div>
 
-              {/* Right half - Front (image) */}
+              {/* Right half - Front */}
               <div
                 className="absolute right-0 top-0 flex h-full items-center justify-center overflow-hidden"
                 style={{ width: '50%' }}
               >
-                {image ? (
-                  <img
-                    src={image}
-                    alt="Card front"
-                    className="max-h-[80%] max-w-[80%] object-contain"
-                    style={{ transform: `scale(${imageScale / 100})` }}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-slate-300">
-                    <div className="text-4xl">+</div>
-                    <div className="mt-2 text-sm">Front Image</div>
-                  </div>
-                )}
+                <FrontContent
+                  frontMode={frontMode}
+                  frontText={frontText}
+                  image={image}
+                  imageScale={imageScale}
+                  panelWidthMm={cardSize.width}
+                  panelHeightMm={flatDimensions.height}
+                />
               </div>
             </div>
           </div>
@@ -458,6 +559,8 @@ interface CardPrintViewProps {
   forPdf?: boolean
   twoPerPage?: boolean
   pageBackground?: PageBackground
+  frontMode?: 'image' | 'text'
+  frontText?: FrontTextContent
 }
 
 export function CardPrintView({
@@ -470,6 +573,8 @@ export function CardPrintView({
   forPdf = false,
   twoPerPage = false,
   pageBackground = DEFAULT_PAGE_BACKGROUND,
+  frontMode = 'image',
+  frontText = DEFAULT_FRONT_TEXT,
 }: CardPrintViewProps) {
   const cardSize = cardSizeId === 'custom' ? customSize : getCardSize(cardSizeId)
 
@@ -490,6 +595,8 @@ export function CardPrintView({
         textStyle={textStyle}
         forPdf={forPdf}
         pageBackground={pageBackground}
+        frontMode={frontMode}
+        frontText={frontText}
       />
     )
   }
@@ -575,7 +682,7 @@ export function CardPrintView({
             )}
           </div>
 
-          {/* Right half - Front (image) */}
+          {/* Right half - Front */}
           <div
             className="absolute top-0 flex items-center justify-center overflow-hidden"
             style={{
@@ -584,18 +691,14 @@ export function CardPrintView({
               height: `${flatDimensions.height}mm`,
             }}
           >
-            {image && (
-              <img
-                src={image}
-                alt="Card front"
-                style={{
-                  maxWidth: '80%',
-                  maxHeight: '80%',
-                  objectFit: 'contain',
-                  transform: `scale(${imageScale / 100})`,
-                }}
-              />
-            )}
+            <FrontContent
+              frontMode={frontMode}
+              frontText={frontText}
+              image={image}
+              imageScale={imageScale}
+              panelWidthMm={cardSize.width}
+              panelHeightMm={flatDimensions.height}
+            />
           </div>
         </div>
       </div>
@@ -619,6 +722,8 @@ interface TwoPerPagePrintViewProps {
   textStyle: TextStyle
   forPdf: boolean
   pageBackground: PageBackground
+  frontMode?: 'image' | 'text'
+  frontText?: FrontTextContent
 }
 
 function TwoPerPagePrintView({
@@ -630,6 +735,8 @@ function TwoPerPagePrintView({
   textStyle,
   forPdf,
   pageBackground,
+  frontMode = 'image',
+  frontText = DEFAULT_FRONT_TEXT,
 }: TwoPerPagePrintViewProps) {
   const { rotated, cardWidth, cardHeight, gap } = layout
   const cropMarkLength = 8 // mm
@@ -705,23 +812,20 @@ function TwoPerPagePrintView({
               >
                 {rotated ? (
                   <>
-                    {/* Top half - Front (image) */}
+                    {/* Top half - Front */}
                     <div
                       className="absolute left-0 top-0 flex items-center justify-center overflow-hidden"
                       style={{ width: `${cardWidth}mm`, height: `${foldPosition}mm` }}
                     >
-                      {image && (
-                        <img
-                          src={image}
-                          alt="Card front"
-                          style={{
-                            maxWidth: '80%',
-                            maxHeight: '80%',
-                            objectFit: 'contain',
-                            transform: `rotate(-90deg) scale(${imageScale / 100})`,
-                          }}
-                        />
-                      )}
+                      <FrontContent
+                        frontMode={frontMode}
+                        frontText={frontText}
+                        image={image}
+                        imageScale={imageScale}
+                        rotated={true}
+                        panelWidthMm={cardWidth}
+                        panelHeightMm={foldPosition}
+                      />
                     </div>
 
                     {/* Bottom half - Back (text) */}
@@ -778,23 +882,19 @@ function TwoPerPagePrintView({
                       )}
                     </div>
 
-                    {/* Right half - Front (image) */}
+                    {/* Right half - Front */}
                     <div
                       className="absolute top-0 flex items-center justify-center overflow-hidden"
                       style={{ left: `${foldPosition}mm`, width: `${foldPosition}mm`, height: `${cardHeight}mm` }}
                     >
-                      {image && (
-                        <img
-                          src={image}
-                          alt="Card front"
-                          style={{
-                            maxWidth: '80%',
-                            maxHeight: '80%',
-                            objectFit: 'contain',
-                            transform: `scale(${imageScale / 100})`,
-                          }}
-                        />
-                      )}
+                      <FrontContent
+                        frontMode={frontMode}
+                        frontText={frontText}
+                        image={image}
+                        imageScale={imageScale}
+                        panelWidthMm={foldPosition}
+                        panelHeightMm={cardHeight}
+                      />
                     </div>
                   </>
                 )}
