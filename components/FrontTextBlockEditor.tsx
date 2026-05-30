@@ -156,25 +156,22 @@ export default function FrontTextBlockEditor({
         </div>
       </div>
 
-      {/* Row 2: font + size */}
-      <div className="flex gap-2">
-        <FontPicker
-          value={block.fontFamily}
-          onChange={fam => upd({ fontFamily: getFontFamilyValue(fam) })}
-          triggerClassName="h-8 flex-1 min-w-0 text-sm"
-        />
+      {/* Row 2: font */}
+      <FontPicker
+        value={block.fontFamily}
+        onChange={fam => upd({ fontFamily: getFontFamilyValue(fam) })}
+        triggerClassName="h-8 w-full text-sm"
+      />
 
-        <div className="flex shrink-0 items-center gap-1">
-          <Input
-            type="number" min={8} max={200} step={1} value={block.fontSize}
-            onChange={e => { const v = parseInt(e.target.value, 10); if (!isNaN(v) && v >= 8) upd({ fontSize: v }) }}
-            className="h-8 w-16 text-right text-sm"
-          />
-          <span className="text-xs text-slate-500">pt</span>
-        </div>
+      {/* Row 3: size slider */}
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 text-xs text-slate-500">Size</span>
+        <Slider value={[block.fontSize]} min={8} max={120} step={1}
+          onValueChange={([v]) => upd({ fontSize: v })} className="flex-1" />
+        <span className="w-12 shrink-0 text-right text-xs tabular-nums text-slate-500">{block.fontSize}pt</span>
       </div>
 
-      {/* Row 3: bold/italic + spacing */}
+      {/* Row 4: bold/italic + spacing */}
       <div className="flex items-center gap-2">
         <Toggle variant="outline" pressed={block.bold} onPressedChange={v => upd({ bold: v })}
           className="h-8 w-8 shrink-0 p-0" aria-label="Bold">
