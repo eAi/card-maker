@@ -86,6 +86,28 @@ export const PRELOADED_FONTS = [
 // Track which fonts have been loaded
 const loadedFonts = new Set<string>(PRELOADED_FONTS)
 
+// Track which preview subsets have been loaded
+const previewLoadedFonts = new Set<string>(PRELOADED_FONTS)
+
+/**
+ * Loads a tiny subset of a Google Font containing only the characters in its
+ * name — enough to render a font preview label without fetching the full font.
+ */
+export function loadFontPreview(fontFamily: string): void {
+  if (previewLoadedFonts.has(fontFamily)) return
+  previewLoadedFonts.add(fontFamily)
+  const chars = [...new Set(fontFamily)].join('')
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontFamily)}&text=${encodeURIComponent(chars)}&display=swap`
+  document.head.appendChild(link)
+}
+
+/** Lazily loads preview subsets for all fonts, staggered to avoid flooding. */
+export function loadAllFontPreviews(): void {
+  FONTS.forEach((font, i) => setTimeout(() => loadFontPreview(font.family), i * 25))
+}
+
 /**
  * Dynamically loads a Google Font by adding a link element to the document head.
  * Returns a promise that resolves when the font is loaded.

@@ -14,11 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { FONT_CATEGORIES, getFontsByCategory, getFontFamilyValue, loadFont } from '@/lib/fonts'
+import { getFontFamilyValue } from '@/lib/fonts'
+import FontPicker from '@/components/FontPicker'
 import { type GradientStop, newStopId } from '@/lib/background'
 import { type FrontTextBlock, type TextGradient } from '@/lib/frontText'
-
-const fontsByCategory = getFontsByCategory()
 
 // ─── Gradient editor (for text fills) ────────────────────────────────────────
 
@@ -122,13 +121,6 @@ export default function FrontTextBlockEditor({
 }: FrontTextBlockEditorProps) {
   const upd = (patch: Partial<FrontTextBlock>) => onChange(patch)
 
-  const handleFontChange = async (family: string) => {
-    await loadFont(family)
-    upd({ fontFamily: getFontFamilyValue(family) })
-  }
-
-  const currentFontName = block.fontFamily.split("'")[1] ?? block.fontFamily.split(',')[0].trim()
-
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
 
@@ -166,26 +158,11 @@ export default function FrontTextBlockEditor({
 
       {/* Row 2: font + size */}
       <div className="flex gap-2">
-        <Select onValueChange={handleFontChange}>
-          <SelectTrigger className="h-8 flex-1 min-w-0 text-sm">
-            <SelectValue placeholder={currentFontName}>
-              <span style={{ fontFamily: block.fontFamily }}>{currentFontName}</span>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent className="max-h-[260px]">
-            {FONT_CATEGORIES.map(cat => (
-              <SelectGroup key={cat.id}>
-                <SelectLabel className="text-xs uppercase tracking-wider text-slate-400">{cat.label}</SelectLabel>
-                {fontsByCategory[cat.id]?.map(font => (
-                  <SelectItem key={font.family} value={font.family}
-                    style={{ fontFamily: getFontFamilyValue(font.family) }}>
-                    {font.family}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
+        <FontPicker
+          value={block.fontFamily}
+          onChange={fam => upd({ fontFamily: getFontFamilyValue(fam) })}
+          triggerClassName="h-8 flex-1 min-w-0 text-sm"
+        />
 
         <div className="flex shrink-0 items-center gap-1">
           <Input
