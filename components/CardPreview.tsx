@@ -10,7 +10,6 @@ import {
 } from '@/lib/background'
 import {
   type FrontTextContent,
-  type FrontTextBlock,
   DEFAULT_FRONT_TEXT,
   computeTextBlockStyle,
 } from '@/lib/frontText'
@@ -119,69 +118,77 @@ function CardBackground({ bg, bleedMm, cardLeft, cardTop, cardWidth, cardHeight,
   )
 }
 
-// ─── Smooth stroke / shadow via SVG filter ────────────────────────────────────
-// Uses feMorphology dilate for a true outside stroke (Photoshop-style) and
-// feGaussianBlur for shadow, both operating on SourceAlpha so they never
-// interact with each other's pixels.
+// ─── SVG filter helpers ───────────────────────────────────────────────────────
+// All filter defs are collected into ONE hidden SVG that sits as a sibling of
+// the text column — never inside it — so html2canvas layout is unaffected.
 
-function StyledTextBlock({
-  block,
-  style,
-  filterSuffix = '',
-}: {
-  block: FrontTextBlock
-  style: React.CSSProperties
-  filterSuffix?: string
-}) {
-  const hasStroke = block.strokeEnabled && block.strokeWidth > 0
-  const hasShadow = block.shadowEnabled
+const PT_TO_PX = 4 / 3  // 1 pt ≈ 1.333 px at 96 dpi
 
-  if (!hasStroke && !hasShadow) {
-    return <span style={style}>{block.text}</span>
-  }
-
-  const filterId = `fx-${block.id}${filterSuffix}`
-  const ptToPx = 4 / 3   // 1 pt = 1.333 px at 96 dpi
-  const strokeRadius = block.strokeWidth * ptToPx
-  const shadowStd   = block.shadowBlur * ptToPx
-  const shadowDx    = block.shadowX    * ptToPx
-  const shadowDy    = block.shadowY    * ptToPx
+function buildFilterDefs(
+  blocks: FrontTextContent['blocks'],
+  filterSuffix: string,
+): React.ReactElement | null {
+  const needFilter = blocks.filter(b => (b.strokeEnabled && b.strokeWidth > 0) || b.shadowEnabled)
+  if (needFilter.length === 0) return null
 
   return (
-    <>
-      {/* Zero-size SVG carries the filter definition — position:absolute keeps it out of flow */}
-      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-        <defs>
-          <filter
-            id={filterId}
-            x="-100%" y="-100%" width="300%" height="300%"
-            colorInterpolationFilters="sRGB"
-          >
-            {hasShadow && (
-              <>
-                <feGaussianBlur stdDeviation={shadowStd} in="SourceAlpha" result="shadowBlurred" />
-                <feOffset dx={shadowDx} dy={shadowDy} in="shadowBlurred" result="shadowOffset" />
-                <feFlood floodColor={block.shadowColor} floodOpacity={block.shadowOpacity / 100} result="shadowFill" />
-                <feComposite in="shadowFill" in2="shadowOffset" operator="in" result="shadowLayer" />
-              </>
-            )}
-            {hasStroke && (
-              <>
-                <feMorphology operator="dilate" radius={strokeRadius} in="SourceAlpha" result="strokeShape" />
-                <feFlood floodColor={block.strokeColor} result="strokeFill" />
-                <feComposite in="strokeFill" in2="strokeShape" operator="in" result="strokeLayer" />
-              </>
-            )}
-            <feMerge>
-              {hasShadow && <feMergeNode in="shadowLayer" />}
-              {hasStroke && <feMergeNode in="strokeLayer" />}
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-      </svg>
-      <span style={{ ...style, filter: `url(#${filterId})` }}>{block.text}</span>
-    </>
+    <svg
+      width="0" height="0"
+      style={{ position: 'absolute', top: 0, left: 0, overflow: 'hidden' }}
+      aria-hidden="true"
+    >
+      <defs>
+        {needFilter.map(block => {
+          const hasStroke = block.strokeEnabled && block.strokeWidth > 0
+          const hasShadow = block.shadowEnabled
+          return (
+            <filter
+              key={block.id}
+              id={`fx-${block.id}${filterSuffix}`}
+              x="-100%" y="-100%" width="300%" height="300%"
+              colorInterpolationFilters="sRGB"
+            >
+              {hasShadow && (
+                <>
+                  <feGaussianBlur stdDeviation={block.shadowBlur * PT_TO_PX} in="SourceAlpha" result="shadowBlurred" />
+                  <feOffset dx={block.shadowX * PT_TO_PX} dy={block.shadowY * PT_TO_PX} in="shadowBlurred" result="shadowOffset" />
+                  <feFlood floodColor={block.shadowColor} floodOpacity={block.shadowOpacity / 100} result="shadowFill" />
+                  <feComposite in="shadowFill" in2="shadowOffset" operator="in" result="shadowLayer" />
+                </>
+              )}
+              {hasStroke && (
+                <>
+                  <feMorphology operator="dilate" radius={block.strokeWidth * PT_TO_PX} in="SourceAlpha" result="strokeShape" />
+                  <feFlood floodColor={block.strokeColor} result="strokeFill" />
+                  <feComposite in="strokeFill" in2="strokeShape" operator="in" result="strokeLayer" />
+                </>
+              )}
+              <feMerge>
+                {hasShadow && <feMergeNode in="shadowLayer" />}
+                {hasStroke && <feMergeNode in="strokeLayer" />}
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          )
+        })}
+      </defs>
+    </svg>
+  )
+}
+
+function renderBlock(block: FrontTextContent['blocks'][number], filterSuffix: string) {
+  const needsFilter = (block.strokeEnabled && block.strokeWidth > 0) || block.shadowEnabled
+  return (
+    <span
+      key={block.id}
+      style={{
+        ...computeTextBlockStyle(block),
+        marginBottom: '0.15em',
+        ...(needsFilter && { filter: `url(#fx-${block.id}${filterSuffix})` }),
+      }}
+    >
+      {block.text}
+    </span>
   )
 }
 
@@ -210,63 +217,60 @@ function FrontContent({
   const visibleBlocks = frontText.blocks.filter(b => b.text.trim())
 
   if (frontMode === 'text') {
+    // SVG defs live OUTSIDE the flex column so they can never affect its layout
+    const filterDefs = buildFilterDefs(visibleBlocks, filterSuffix)
+    const blockSpans = visibleBlocks.length > 0
+      ? visibleBlocks.map(b => renderBlock(b, filterSuffix))
+      : <span style={{ color: '#d1d5db', fontSize: '14pt' }}>Your text here</span>
+
     if (rotated) {
       // Rotated two-per-page: wrap in -90deg inner box, centered vertically
       return (
-        <div
-          style={{
-            position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            overflow: 'hidden',
-          }}
-        >
+        <>
+          {filterDefs}
           <div
             style={{
-              transform: 'rotate(-90deg)',
-              width: `${panelHeightMm}mm`,
-              height: `${panelWidthMm}mm`,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 4mm',
+              position: 'absolute', inset: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
               overflow: 'hidden',
-              boxSizing: 'border-box',
             }}
           >
-            {visibleBlocks.length > 0 ? visibleBlocks.map(block => (
-              <React.Fragment key={block.id}>
-                <StyledTextBlock block={block} filterSuffix={filterSuffix}
-                  style={{ ...computeTextBlockStyle(block), marginBottom: '0.15em' }} />
-              </React.Fragment>
-            )) : (
-              <span style={{ color: '#d1d5db', fontSize: '14pt' }}>Your text here</span>
-            )}
+            <div
+              style={{
+                transform: 'rotate(-90deg)',
+                width: `${panelHeightMm}mm`,
+                height: `${panelWidthMm}mm`,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 4mm',
+                overflow: 'hidden',
+                boxSizing: 'border-box',
+              }}
+            >
+              {blockSpans}
+            </div>
           </div>
-        </div>
+        </>
       )
     }
 
     return (
-      <div
-        style={{
-          position: 'absolute',
-          top: `${frontText.verticalOffset}%`,
-          left: 0, right: 0,
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '0 4mm',
-          overflow: 'hidden',
-        }}
-      >
-        {visibleBlocks.length > 0 ? visibleBlocks.map(block => (
-          <React.Fragment key={block.id}>
-            <StyledTextBlock block={block} filterSuffix={filterSuffix}
-              style={{ ...computeTextBlockStyle(block), marginBottom: '0.15em' }} />
-          </React.Fragment>
-        )) : (
-          <span style={{ color: '#d1d5db', fontSize: '14pt' }}>Your text here</span>
-        )}
-      </div>
+      <>
+        {filterDefs}
+        <div
+          style={{
+            position: 'absolute',
+            top: `${frontText.verticalOffset}%`,
+            left: 0, right: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            padding: '0 4mm',
+          }}
+        >
+          {blockSpans}
+        </div>
+      </>
     )
   }
 
