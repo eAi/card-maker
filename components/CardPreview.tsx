@@ -118,6 +118,80 @@ function CardBackground({ bg, bleedMm, cardLeft, cardTop, cardWidth, cardHeight,
   )
 }
 
+// ─── SVG filter helpers ───────────────────────────────────────────────────────
+// All filter defs are collected into ONE hidden SVG that sits as a sibling of
+// the text column — never inside it — so html2canvas layout is unaffected.
+
+const PT_TO_PX = 4 / 3  // 1 pt ≈ 1.333 px at 96 dpi
+
+function buildFilterDefs(
+  blocks: FrontTextContent['blocks'],
+  filterSuffix: string,
+): React.ReactElement | null {
+  const needFilter = blocks.filter(b => (b.strokeEnabled && b.strokeWidth > 0) || b.shadowEnabled)
+  if (needFilter.length === 0) return null
+
+  return (
+    <svg
+      width="0" height="0"
+      style={{ position: 'absolute', top: 0, left: 0, overflow: 'hidden' }}
+      aria-hidden="true"
+    >
+      <defs>
+        {needFilter.map(block => {
+          const hasStroke = block.strokeEnabled && block.strokeWidth > 0
+          const hasShadow = block.shadowEnabled
+          return (
+            <filter
+              key={block.id}
+              id={`fx-${block.id}${filterSuffix}`}
+              x="-100%" y="-100%" width="300%" height="300%"
+              colorInterpolationFilters="sRGB"
+            >
+              {hasShadow && (
+                <>
+                  <feGaussianBlur stdDeviation={block.shadowBlur * PT_TO_PX} in="SourceAlpha" result="shadowBlurred" />
+                  <feOffset dx={block.shadowX * PT_TO_PX} dy={block.shadowY * PT_TO_PX} in="shadowBlurred" result="shadowOffset" />
+                  <feFlood floodColor={block.shadowColor} floodOpacity={block.shadowOpacity / 100} result="shadowFill" />
+                  <feComposite in="shadowFill" in2="shadowOffset" operator="in" result="shadowLayer" />
+                </>
+              )}
+              {hasStroke && (
+                <>
+                  <feMorphology operator="dilate" radius={block.strokeWidth * PT_TO_PX} in="SourceAlpha" result="strokeShape" />
+                  <feFlood floodColor={block.strokeColor} result="strokeFill" />
+                  <feComposite in="strokeFill" in2="strokeShape" operator="in" result="strokeLayer" />
+                </>
+              )}
+              <feMerge>
+                {hasShadow && <feMergeNode in="shadowLayer" />}
+                {hasStroke && <feMergeNode in="strokeLayer" />}
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          )
+        })}
+      </defs>
+    </svg>
+  )
+}
+
+function renderBlock(block: FrontTextContent['blocks'][number], filterSuffix: string) {
+  const needsFilter = (block.strokeEnabled && block.strokeWidth > 0) || block.shadowEnabled
+  return (
+    <span
+      key={block.id}
+      style={{
+        ...computeTextBlockStyle(block),
+        marginBottom: '0.15em',
+        ...(needsFilter && { filter: `url(#fx-${block.id}${filterSuffix})` }),
+      }}
+    >
+      {block.text}
+    </span>
+  )
+}
+
 // ─── Screen preview ───────────────────────────────────────────────────────────
 
 // Renders the content of the front panel (image or text blocks)
@@ -129,6 +203,7 @@ function FrontContent({
   rotated = false,
   panelWidthMm,
   panelHeightMm,
+  filterSuffix = '',
 }: {
   frontMode?: 'image' | 'text'
   frontText?: FrontTextContent
@@ -137,65 +212,65 @@ function FrontContent({
   rotated?: boolean
   panelWidthMm: number
   panelHeightMm: number
+  filterSuffix?: string
 }) {
   const visibleBlocks = frontText.blocks.filter(b => b.text.trim())
 
   if (frontMode === 'text') {
+    // SVG defs live OUTSIDE the flex column so they can never affect its layout
+    const filterDefs = buildFilterDefs(visibleBlocks, filterSuffix)
+    const blockSpans = visibleBlocks.length > 0
+      ? visibleBlocks.map(b => renderBlock(b, filterSuffix))
+      : <span style={{ color: '#d1d5db', fontSize: '14pt' }}>Your text here</span>
+
     if (rotated) {
       // Rotated two-per-page: wrap in -90deg inner box, centered vertically
       return (
-        <div
-          style={{
-            position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            overflow: 'hidden',
-          }}
-        >
+        <>
+          {filterDefs}
           <div
             style={{
-              transform: 'rotate(-90deg)',
-              width: `${panelHeightMm}mm`,
-              height: `${panelWidthMm}mm`,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 4mm',
+              position: 'absolute', inset: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
               overflow: 'hidden',
-              boxSizing: 'border-box',
             }}
           >
-            {visibleBlocks.length > 0 ? visibleBlocks.map(block => (
-              <span key={block.id} style={{ ...computeTextBlockStyle(block), marginBottom: '0.15em' }}>
-                {block.text}
-              </span>
-            )) : (
-              <span style={{ color: '#d1d5db', fontSize: '14pt' }}>Your text here</span>
-            )}
+            <div
+              style={{
+                transform: 'rotate(-90deg)',
+                width: `${panelHeightMm}mm`,
+                height: `${panelWidthMm}mm`,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 4mm',
+                overflow: 'hidden',
+                boxSizing: 'border-box',
+              }}
+            >
+              {blockSpans}
+            </div>
           </div>
-        </div>
+        </>
       )
     }
 
     return (
-      <div
-        style={{
-          position: 'absolute',
-          top: `${frontText.verticalOffset}%`,
-          left: 0, right: 0,
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '0 4mm',
-          overflow: 'hidden',
-        }}
-      >
-        {visibleBlocks.length > 0 ? visibleBlocks.map(block => (
-          <span key={block.id} style={{ ...computeTextBlockStyle(block), marginBottom: '0.15em' }}>
-            {block.text}
-          </span>
-        )) : (
-          <span style={{ color: '#d1d5db', fontSize: '14pt' }}>Your text here</span>
-        )}
-      </div>
+      <>
+        {filterDefs}
+        <div
+          style={{
+            position: 'absolute',
+            top: `${frontText.verticalOffset}%`,
+            left: 0, right: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            padding: '0 4mm',
+          }}
+        >
+          {blockSpans}
+        </div>
+      </>
     )
   }
 
@@ -358,6 +433,7 @@ export default function CardPreview({
                               rotated={true}
                               panelWidthMm={cardWidth}
                               panelHeightMm={foldPosition}
+                              filterSuffix={`-sc-r${cardIndex}`}
                             />
                           </div>
 
@@ -426,6 +502,7 @@ export default function CardPreview({
                               imageScale={imageScale}
                               panelWidthMm={cardWidth / 2}
                               panelHeightMm={cardHeight}
+                              filterSuffix={`-sc-${cardIndex}`}
                             />
                           </div>
                         </>
@@ -537,6 +614,7 @@ export default function CardPreview({
                   imageScale={imageScale}
                   panelWidthMm={cardSize.width}
                   panelHeightMm={flatDimensions.height}
+                  filterSuffix="-sc"
                 />
               </div>
             </div>
@@ -698,6 +776,7 @@ export function CardPrintView({
               imageScale={imageScale}
               panelWidthMm={cardSize.width}
               panelHeightMm={flatDimensions.height}
+              filterSuffix="-pr"
             />
           </div>
         </div>
@@ -825,6 +904,7 @@ function TwoPerPagePrintView({
                         rotated={true}
                         panelWidthMm={cardWidth}
                         panelHeightMm={foldPosition}
+                        filterSuffix={`-pr-r${cardIndex}`}
                       />
                     </div>
 
@@ -894,6 +974,7 @@ function TwoPerPagePrintView({
                         imageScale={imageScale}
                         panelWidthMm={foldPosition}
                         panelHeightMm={cardHeight}
+                        filterSuffix={`-pr-${cardIndex}`}
                       />
                     </div>
                   </>

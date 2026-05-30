@@ -110,10 +110,6 @@ export function computeTextBlockStyle(block: FrontTextBlock): CSSProperties {
     maxWidth: '100%',
   }
 
-  if (block.shadowEnabled) {
-    base.textShadow = `${block.shadowX}pt ${block.shadowY}pt ${block.shadowBlur}pt ${hexToRgba(block.shadowColor, block.shadowOpacity)}`
-  }
-
   if (block.fillType === 'gradient') {
     const stopCSS = [...block.gradient.stops]
       .sort((a, b) => a.position - b.position)
@@ -132,11 +128,8 @@ export function computeTextBlockStyle(block: FrontTextBlock): CSSProperties {
     base.color = block.color
   }
 
-  if (block.strokeEnabled && block.strokeWidth > 0) {
-    base.WebkitTextStroke = `${block.strokeWidth}pt ${block.strokeColor}`
-    // Draw stroke beneath fill so it appears outside the text rather than over it
-    ;(base as Record<string, unknown>).paintOrder = 'stroke fill'
-  }
+  // Stroke and shadow are applied via SVG feMorphology filter in StyledTextBlock
+  // for smooth Photoshop-style outside strokes independent of fill type.
 
   return base
 }
