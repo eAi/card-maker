@@ -134,6 +134,8 @@ export function computeTextBlockStyle(block: FrontTextBlock): CSSProperties {
 
   if (block.strokeEnabled && block.strokeWidth > 0) {
     base.WebkitTextStroke = `${block.strokeWidth}pt ${block.strokeColor}`
+    // Draw stroke beneath fill so it appears outside the text rather than over it
+    ;(base as Record<string, unknown>).paintOrder = 'stroke fill'
   }
 
   return base
