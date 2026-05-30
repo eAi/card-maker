@@ -10,6 +10,7 @@ import {
 } from '@/lib/background'
 import {
   type FrontTextContent,
+  type FrontTextBlock,
   DEFAULT_FRONT_TEXT,
   computeTextBlockStyle,
 } from '@/lib/frontText'
@@ -118,6 +119,72 @@ function CardBackground({ bg, bleedMm, cardLeft, cardTop, cardWidth, cardHeight,
   )
 }
 
+// ─── Smooth stroke / shadow via SVG filter ────────────────────────────────────
+// Uses feMorphology dilate for a true outside stroke (Photoshop-style) and
+// feGaussianBlur for shadow, both operating on SourceAlpha so they never
+// interact with each other's pixels.
+
+function StyledTextBlock({
+  block,
+  style,
+  filterSuffix = '',
+}: {
+  block: FrontTextBlock
+  style: React.CSSProperties
+  filterSuffix?: string
+}) {
+  const hasStroke = block.strokeEnabled && block.strokeWidth > 0
+  const hasShadow = block.shadowEnabled
+
+  if (!hasStroke && !hasShadow) {
+    return <span style={style}>{block.text}</span>
+  }
+
+  const filterId = `fx-${block.id}${filterSuffix}`
+  const ptToPx = 4 / 3   // 1 pt = 1.333 px at 96 dpi
+  const strokeRadius = block.strokeWidth * ptToPx
+  const shadowStd   = block.shadowBlur * ptToPx
+  const shadowDx    = block.shadowX    * ptToPx
+  const shadowDy    = block.shadowY    * ptToPx
+
+  return (
+    <>
+      {/* Zero-size SVG carries the filter definition — position:absolute keeps it out of flow */}
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <defs>
+          <filter
+            id={filterId}
+            x="-100%" y="-100%" width="300%" height="300%"
+            colorInterpolationFilters="sRGB"
+          >
+            {hasShadow && (
+              <>
+                <feGaussianBlur stdDeviation={shadowStd} in="SourceAlpha" result="shadowBlurred" />
+                <feOffset dx={shadowDx} dy={shadowDy} in="shadowBlurred" result="shadowOffset" />
+                <feFlood floodColor={block.shadowColor} floodOpacity={block.shadowOpacity / 100} result="shadowFill" />
+                <feComposite in="shadowFill" in2="shadowOffset" operator="in" result="shadowLayer" />
+              </>
+            )}
+            {hasStroke && (
+              <>
+                <feMorphology operator="dilate" radius={strokeRadius} in="SourceAlpha" result="strokeShape" />
+                <feFlood floodColor={block.strokeColor} result="strokeFill" />
+                <feComposite in="strokeFill" in2="strokeShape" operator="in" result="strokeLayer" />
+              </>
+            )}
+            <feMerge>
+              {hasShadow && <feMergeNode in="shadowLayer" />}
+              {hasStroke && <feMergeNode in="strokeLayer" />}
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+      </svg>
+      <span style={{ ...style, filter: `url(#${filterId})` }}>{block.text}</span>
+    </>
+  )
+}
+
 // ─── Screen preview ───────────────────────────────────────────────────────────
 
 // Renders the content of the front panel (image or text blocks)
@@ -129,6 +196,7 @@ function FrontContent({
   rotated = false,
   panelWidthMm,
   panelHeightMm,
+  filterSuffix = '',
 }: {
   frontMode?: 'image' | 'text'
   frontText?: FrontTextContent
@@ -137,6 +205,7 @@ function FrontContent({
   rotated?: boolean
   panelWidthMm: number
   panelHeightMm: number
+  filterSuffix?: string
 }) {
   const visibleBlocks = frontText.blocks.filter(b => b.text.trim())
 
@@ -166,9 +235,10 @@ function FrontContent({
             }}
           >
             {visibleBlocks.length > 0 ? visibleBlocks.map(block => (
-              <span key={block.id} style={{ ...computeTextBlockStyle(block), marginBottom: '0.15em' }}>
-                {block.text}
-              </span>
+              <React.Fragment key={block.id}>
+                <StyledTextBlock block={block} filterSuffix={filterSuffix}
+                  style={{ ...computeTextBlockStyle(block), marginBottom: '0.15em' }} />
+              </React.Fragment>
             )) : (
               <span style={{ color: '#d1d5db', fontSize: '14pt' }}>Your text here</span>
             )}
@@ -189,9 +259,10 @@ function FrontContent({
         }}
       >
         {visibleBlocks.length > 0 ? visibleBlocks.map(block => (
-          <span key={block.id} style={{ ...computeTextBlockStyle(block), marginBottom: '0.15em' }}>
-            {block.text}
-          </span>
+          <React.Fragment key={block.id}>
+            <StyledTextBlock block={block} filterSuffix={filterSuffix}
+              style={{ ...computeTextBlockStyle(block), marginBottom: '0.15em' }} />
+          </React.Fragment>
         )) : (
           <span style={{ color: '#d1d5db', fontSize: '14pt' }}>Your text here</span>
         )}
@@ -358,6 +429,7 @@ export default function CardPreview({
                               rotated={true}
                               panelWidthMm={cardWidth}
                               panelHeightMm={foldPosition}
+                              filterSuffix={`-sc-r${cardIndex}`}
                             />
                           </div>
 
@@ -426,6 +498,7 @@ export default function CardPreview({
                               imageScale={imageScale}
                               panelWidthMm={cardWidth / 2}
                               panelHeightMm={cardHeight}
+                              filterSuffix={`-sc-${cardIndex}`}
                             />
                           </div>
                         </>
@@ -537,6 +610,7 @@ export default function CardPreview({
                   imageScale={imageScale}
                   panelWidthMm={cardSize.width}
                   panelHeightMm={flatDimensions.height}
+                  filterSuffix="-sc"
                 />
               </div>
             </div>
@@ -698,6 +772,7 @@ export function CardPrintView({
               imageScale={imageScale}
               panelWidthMm={cardSize.width}
               panelHeightMm={flatDimensions.height}
+              filterSuffix="-pr"
             />
           </div>
         </div>
@@ -825,6 +900,7 @@ function TwoPerPagePrintView({
                         rotated={true}
                         panelWidthMm={cardWidth}
                         panelHeightMm={foldPosition}
+                        filterSuffix={`-pr-r${cardIndex}`}
                       />
                     </div>
 
@@ -894,6 +970,7 @@ function TwoPerPagePrintView({
                         imageScale={imageScale}
                         panelWidthMm={foldPosition}
                         panelHeightMm={cardHeight}
+                        filterSuffix={`-pr-${cardIndex}`}
                       />
                     </div>
                   </>
