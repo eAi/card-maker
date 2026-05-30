@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import ImageDropzone from '@/components/ImageDropzone'
 import TextEditor, { type TextStyle } from '@/components/TextEditor'
 import SizeSelector from '@/components/SizeSelector'
+import BackgroundEditor from '@/components/BackgroundEditor'
 import CardPreview, { CardPrintView } from '@/components/CardPreview'
 import { type CardSize, canFitTwoPerPage, getCardSize } from '@/lib/cardSizes'
 import { generatePdf } from '@/lib/generatePdf'
@@ -37,6 +38,7 @@ import {
   setCurrentCardId,
   getCurrentCardId,
 } from '@/lib/cardStorage'
+import { type PageBackground, DEFAULT_PAGE_BACKGROUND } from '@/lib/background'
 
 const DEFAULT_TEXT_STYLE: TextStyle = {
   fontFamily: "'Playfair Display', serif",
@@ -53,6 +55,7 @@ const DEFAULT_CARD_STATE: CardState = {
   cardSize: 'a5',
   customSize: null,
   twoPerPage: false,
+  pageBackground: DEFAULT_PAGE_BACKGROUND,
 }
 
 export default function CardMaker() {
@@ -64,6 +67,7 @@ export default function CardMaker() {
   const [cardSize, setCardSize] = useState('a5')
   const [customSize, setCustomSize] = useState<CardSize | null>(null)
   const [twoPerPage, setTwoPerPage] = useState(false)
+  const [pageBackground, setPageBackground] = useState<PageBackground>(DEFAULT_PAGE_BACKGROUND)
 
   // File management state
   const [currentCard, setCurrentCard] = useState<SavedCard | null>(null)
@@ -91,7 +95,8 @@ export default function CardMaker() {
     cardSize,
     customSize,
     twoPerPage,
-  }), [image, imageScale, text, textStyle, cardSize, customSize, twoPerPage])
+    pageBackground,
+  }), [image, imageScale, text, textStyle, cardSize, customSize, twoPerPage, pageBackground])
 
   // Apply state from a saved card
   const applyCardState = useCallback((state: CardState) => {
@@ -102,6 +107,7 @@ export default function CardMaker() {
     setCardSize(state.cardSize)
     setCustomSize(state.customSize)
     setTwoPerPage(state.twoPerPage)
+    setPageBackground(state.pageBackground ?? DEFAULT_PAGE_BACKGROUND)
   }, [])
 
   // Load saved cards list and restore last open card
@@ -141,10 +147,11 @@ export default function CardMaker() {
         current.cardSize !== currentCard.cardSize ||
         current.twoPerPage !== currentCard.twoPerPage ||
         JSON.stringify(current.textStyle) !== JSON.stringify(currentCard.textStyle) ||
-        JSON.stringify(current.customSize) !== JSON.stringify(currentCard.customSize)
+        JSON.stringify(current.customSize) !== JSON.stringify(currentCard.customSize) ||
+        JSON.stringify(current.pageBackground) !== JSON.stringify(currentCard.pageBackground ?? DEFAULT_PAGE_BACKGROUND)
       setHasUnsavedChanges(changed)
     }
-  }, [isLoaded, currentCard, image, imageScale, text, textStyle, cardSize, customSize, twoPerPage, getCurrentState])
+  }, [isLoaded, currentCard, image, imageScale, text, textStyle, cardSize, customSize, twoPerPage, pageBackground, getCurrentState])
 
   // Auto-save when card already exists (debounced)
   useEffect(() => {
@@ -159,7 +166,8 @@ export default function CardMaker() {
         current.cardSize !== currentCard.cardSize ||
         current.twoPerPage !== currentCard.twoPerPage ||
         JSON.stringify(current.textStyle) !== JSON.stringify(currentCard.textStyle) ||
-        JSON.stringify(current.customSize) !== JSON.stringify(currentCard.customSize)
+        JSON.stringify(current.customSize) !== JSON.stringify(currentCard.customSize) ||
+        JSON.stringify(current.pageBackground) !== JSON.stringify(currentCard.pageBackground ?? DEFAULT_PAGE_BACKGROUND)
 
       if (changed) {
         const updated: SavedCard = {
@@ -179,7 +187,7 @@ export default function CardMaker() {
     }, 1000)
 
     return () => clearTimeout(timeout)
-  }, [isLoaded, currentCard, image, imageScale, text, textStyle, cardSize, customSize, twoPerPage, getCurrentState])
+  }, [isLoaded, currentCard, image, imageScale, text, textStyle, cardSize, customSize, twoPerPage, pageBackground, getCurrentState])
 
   // Check if current card size supports two-per-page
   const currentCardSize = cardSize === 'custom' ? customSize : getCardSize(cardSize)
@@ -458,6 +466,7 @@ export default function CardMaker() {
                 textStyle={textStyle}
                 customSize={customSize}
                 twoPerPage={twoPerPage}
+                pageBackground={pageBackground}
               />
             </div>
 
@@ -497,6 +506,13 @@ export default function CardMaker() {
                   textStyle={textStyle}
                   onTextChange={setText}
                   onStyleChange={setTextStyle}
+                />
+              </div>
+
+              <div className="border-t border-slate-200 pt-4 sm:pt-6">
+                <BackgroundEditor
+                  background={pageBackground}
+                  onChange={setPageBackground}
                 />
               </div>
 
@@ -647,6 +663,7 @@ export default function CardMaker() {
           customSize={customSize}
           forPdf={true}
           twoPerPage={twoPerPage}
+          pageBackground={pageBackground}
         />
       </div>
 
@@ -659,6 +676,7 @@ export default function CardMaker() {
         textStyle={textStyle}
         customSize={customSize}
         twoPerPage={twoPerPage}
+        pageBackground={pageBackground}
       />
     </>
   )
