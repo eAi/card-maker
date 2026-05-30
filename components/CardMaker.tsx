@@ -19,10 +19,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import ImageDropzone from '@/components/ImageDropzone'
 import TextEditor, { type TextStyle } from '@/components/TextEditor'
 import SizeSelector from '@/components/SizeSelector'
 import BackgroundEditor from '@/components/BackgroundEditor'
+import FrontPanelEditor from '@/components/FrontPanelEditor'
 import CardPreview, { CardPrintView } from '@/components/CardPreview'
 import { type CardSize, canFitTwoPerPage, getCardSize } from '@/lib/cardSizes'
 import { generatePdf } from '@/lib/generatePdf'
@@ -39,6 +39,7 @@ import {
   getCurrentCardId,
 } from '@/lib/cardStorage'
 import { type PageBackground, DEFAULT_PAGE_BACKGROUND } from '@/lib/background'
+import { type FrontTextContent, DEFAULT_FRONT_TEXT } from '@/lib/frontText'
 
 const DEFAULT_TEXT_STYLE: TextStyle = {
   fontFamily: "'Playfair Display', serif",
@@ -56,6 +57,8 @@ const DEFAULT_CARD_STATE: CardState = {
   customSize: null,
   twoPerPage: false,
   pageBackground: DEFAULT_PAGE_BACKGROUND,
+  frontMode: 'image',
+  frontText: DEFAULT_FRONT_TEXT,
 }
 
 export default function CardMaker() {
@@ -68,6 +71,8 @@ export default function CardMaker() {
   const [customSize, setCustomSize] = useState<CardSize | null>(null)
   const [twoPerPage, setTwoPerPage] = useState(false)
   const [pageBackground, setPageBackground] = useState<PageBackground>(DEFAULT_PAGE_BACKGROUND)
+  const [frontMode, setFrontMode] = useState<'image' | 'text'>('image')
+  const [frontText, setFrontText] = useState<FrontTextContent>(DEFAULT_FRONT_TEXT)
 
   // File management state
   const [currentCard, setCurrentCard] = useState<SavedCard | null>(null)
@@ -96,7 +101,9 @@ export default function CardMaker() {
     customSize,
     twoPerPage,
     pageBackground,
-  }), [image, imageScale, text, textStyle, cardSize, customSize, twoPerPage, pageBackground])
+    frontMode,
+    frontText,
+  }), [image, imageScale, text, textStyle, cardSize, customSize, twoPerPage, pageBackground, frontMode, frontText])
 
   // Apply state from a saved card
   const applyCardState = useCallback((state: CardState) => {
@@ -108,6 +115,8 @@ export default function CardMaker() {
     setCustomSize(state.customSize)
     setTwoPerPage(state.twoPerPage)
     setPageBackground(state.pageBackground ?? DEFAULT_PAGE_BACKGROUND)
+    setFrontMode(state.frontMode ?? 'image')
+    setFrontText(state.frontText ?? DEFAULT_FRONT_TEXT)
   }, [])
 
   // Load saved cards list and restore last open card
@@ -148,10 +157,12 @@ export default function CardMaker() {
         current.twoPerPage !== currentCard.twoPerPage ||
         JSON.stringify(current.textStyle) !== JSON.stringify(currentCard.textStyle) ||
         JSON.stringify(current.customSize) !== JSON.stringify(currentCard.customSize) ||
-        JSON.stringify(current.pageBackground) !== JSON.stringify(currentCard.pageBackground ?? DEFAULT_PAGE_BACKGROUND)
+        JSON.stringify(current.pageBackground) !== JSON.stringify(currentCard.pageBackground ?? DEFAULT_PAGE_BACKGROUND) ||
+        current.frontMode !== (currentCard.frontMode ?? 'image') ||
+        JSON.stringify(current.frontText) !== JSON.stringify(currentCard.frontText ?? DEFAULT_FRONT_TEXT)
       setHasUnsavedChanges(changed)
     }
-  }, [isLoaded, currentCard, image, imageScale, text, textStyle, cardSize, customSize, twoPerPage, pageBackground, getCurrentState])
+  }, [isLoaded, currentCard, image, imageScale, text, textStyle, cardSize, customSize, twoPerPage, pageBackground, frontMode, frontText, getCurrentState])
 
   // Auto-save when card already exists (debounced)
   useEffect(() => {
@@ -167,7 +178,9 @@ export default function CardMaker() {
         current.twoPerPage !== currentCard.twoPerPage ||
         JSON.stringify(current.textStyle) !== JSON.stringify(currentCard.textStyle) ||
         JSON.stringify(current.customSize) !== JSON.stringify(currentCard.customSize) ||
-        JSON.stringify(current.pageBackground) !== JSON.stringify(currentCard.pageBackground ?? DEFAULT_PAGE_BACKGROUND)
+        JSON.stringify(current.pageBackground) !== JSON.stringify(currentCard.pageBackground ?? DEFAULT_PAGE_BACKGROUND) ||
+        current.frontMode !== (currentCard.frontMode ?? 'image') ||
+        JSON.stringify(current.frontText) !== JSON.stringify(currentCard.frontText ?? DEFAULT_FRONT_TEXT)
 
       if (changed) {
         const updated: SavedCard = {
@@ -187,7 +200,7 @@ export default function CardMaker() {
     }, 1000)
 
     return () => clearTimeout(timeout)
-  }, [isLoaded, currentCard, image, imageScale, text, textStyle, cardSize, customSize, twoPerPage, pageBackground, getCurrentState])
+  }, [isLoaded, currentCard, image, imageScale, text, textStyle, cardSize, customSize, twoPerPage, pageBackground, frontMode, frontText, getCurrentState])
 
   // Check if current card size supports two-per-page
   const currentCardSize = cardSize === 'custom' ? customSize : getCardSize(cardSize)
@@ -467,6 +480,8 @@ export default function CardMaker() {
                 customSize={customSize}
                 twoPerPage={twoPerPage}
                 pageBackground={pageBackground}
+                frontMode={frontMode}
+                frontText={frontText}
               />
             </div>
 
@@ -492,11 +507,15 @@ export default function CardMaker() {
               )}
 
               <div className="border-t border-slate-200 pt-4 sm:pt-6">
-                <ImageDropzone
+                <FrontPanelEditor
+                  mode={frontMode}
+                  onModeChange={setFrontMode}
                   image={image}
                   onImageChange={setImage}
                   imageScale={imageScale}
                   onImageScaleChange={setImageScale}
+                  frontText={frontText}
+                  onFrontTextChange={setFrontText}
                 />
               </div>
 
@@ -664,6 +683,8 @@ export default function CardMaker() {
           forPdf={true}
           twoPerPage={twoPerPage}
           pageBackground={pageBackground}
+          frontMode={frontMode}
+          frontText={frontText}
         />
       </div>
 
@@ -677,6 +698,8 @@ export default function CardMaker() {
         customSize={customSize}
         twoPerPage={twoPerPage}
         pageBackground={pageBackground}
+        frontMode={frontMode}
+        frontText={frontText}
       />
     </>
   )

@@ -2,6 +2,7 @@ import { get, set, del } from 'idb-keyval'
 import { type TextStyle } from '@/components/TextEditor'
 import { type CardSize } from '@/lib/cardSizes'
 import { type PageBackground } from '@/lib/background'
+import { type FrontTextContent } from '@/lib/frontText'
 
 const CARD_PREFIX = 'card:'
 const CARD_INDEX_KEY = 'card-index'
@@ -16,6 +17,8 @@ export interface CardState {
   twoPerPage: boolean
   image: string | null
   pageBackground?: PageBackground
+  frontMode?: 'image' | 'text'
+  frontText?: FrontTextContent
 }
 
 export interface CardMetadata {
