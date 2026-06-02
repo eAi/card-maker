@@ -72,7 +72,7 @@ export default function TextEditor({
         <Slider
           value={[textStyle.fontSize]}
           onValueChange={handleFontSizeChange}
-          min={12}
+          min={6}
           max={48}
           step={1}
         />

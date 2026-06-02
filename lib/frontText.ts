@@ -60,7 +60,7 @@ const BASE_BLOCK: Omit<FrontTextBlock, 'id' | 'text' | 'fontSize'> = {
   color: '#1a1a1a',
   gradient: DEFAULT_GRADIENT,
   strokeEnabled: false,
-  strokeColor: '#000000',
+  strokeColor: '#3b82f6',
   strokeWidth: 1,
   shadowEnabled: false,
   shadowColor: '#000000',
@@ -72,7 +72,13 @@ const BASE_BLOCK: Omit<FrontTextBlock, 'id' | 'text' | 'fontSize'> = {
 
 export const DEFAULT_FRONT_TEXT: FrontTextContent = {
   blocks: [
-    { id: 'init-1', text: 'Happy Birthday', fontSize: 40, ...BASE_BLOCK },
+    {
+      id: 'init-1',
+      text: 'Happy Birthday',
+      fontSize: 40,
+      ...BASE_BLOCK,
+      strokeColor: '#3b82f6',
+    },
   ],
   verticalOffset: 25,
 }

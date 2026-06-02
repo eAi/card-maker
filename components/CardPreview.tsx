@@ -204,6 +204,7 @@ function FrontContent({
   panelWidthMm,
   panelHeightMm,
   filterSuffix = '',
+  showPlaceholder = true,
 }: {
   frontMode?: 'image' | 'text'
   frontText?: FrontTextContent
@@ -213,6 +214,7 @@ function FrontContent({
   panelWidthMm: number
   panelHeightMm: number
   filterSuffix?: string
+  showPlaceholder?: boolean
 }) {
   const visibleBlocks = frontText.blocks.filter(b => b.text.trim())
 
@@ -288,6 +290,11 @@ function FrontContent({
         }}
       />
     )
+  }
+
+  // Show placeholder only in preview mode, not in print/PDF
+  if (!showPlaceholder) {
+    return null
   }
 
   return (
@@ -777,6 +784,7 @@ export function CardPrintView({
               panelWidthMm={cardSize.width}
               panelHeightMm={flatDimensions.height}
               filterSuffix="-pr"
+              showPlaceholder={false}
             />
           </div>
         </div>
@@ -905,6 +913,7 @@ function TwoPerPagePrintView({
                         panelWidthMm={cardWidth}
                         panelHeightMm={foldPosition}
                         filterSuffix={`-pr-r${cardIndex}`}
+                        showPlaceholder={false}
                       />
                     </div>
 
@@ -975,6 +984,7 @@ function TwoPerPagePrintView({
                         panelWidthMm={foldPosition}
                         panelHeightMm={cardHeight}
                         filterSuffix={`-pr-${cardIndex}`}
+                        showPlaceholder={false}
                       />
                     </div>
                   </>

@@ -468,45 +468,33 @@ export default function CardMaker() {
 
         {/* Main content */}
         <div className="mx-auto max-w-7xl lg:px-4 lg:py-6">
-          <div className="flex flex-col lg:grid lg:grid-cols-[350px_1fr] lg:gap-6">
-            {/* Preview panel - sticky on mobile, normal on desktop */}
-            <div className="sticky top-[57px] z-[5] bg-slate-50 border-b border-slate-200 p-3 lg:relative lg:top-0 lg:bg-white lg:border lg:rounded-lg lg:p-6 lg:order-2">
-              <CardPreview
-                cardSizeId={cardSize}
-                image={image}
-                imageScale={imageScale}
-                text={text}
-                textStyle={textStyle}
-                customSize={customSize}
-                twoPerPage={twoPerPage}
-                pageBackground={pageBackground}
-                frontMode={frontMode}
-                frontText={frontText}
-              />
-            </div>
+          <div className="flex flex-col lg:grid lg:grid-cols-[400px_1fr] lg:gap-6 lg:items-start">
+            {/* Controls panel - scrollable */}
+            <div className="space-y-6 bg-white p-4 sm:p-6 lg:rounded-lg lg:border lg:border-slate-200 lg:order-1">
+              {/* Card Settings */}
+              <div>
+                <SizeSelector
+                  selectedSize={cardSize}
+                  onSizeChange={setCardSize}
+                  customSize={customSize}
+                  onCustomSizeChange={setCustomSize}
+                />
 
-            {/* Controls panel - scrollable on mobile */}
-            <div className="space-y-4 sm:space-y-6 bg-white p-4 sm:p-6 lg:rounded-lg lg:border lg:border-slate-200 lg:order-1">
-              <SizeSelector
-                selectedSize={cardSize}
-                onSizeChange={setCardSize}
-                customSize={customSize}
-                onCustomSizeChange={setCustomSize}
-              />
+                {canPrintTwoPerPage && (
+                  <label className="flex items-center gap-2 mt-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={twoPerPage}
+                      onChange={(e) => setTwoPerPage(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                    />
+                    <span className="text-sm text-slate-700">Print 2 cards per page</span>
+                  </label>
+                )}
+              </div>
 
-              {canPrintTwoPerPage && (
-                <label className="flex items-center gap-2 mt-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={twoPerPage}
-                    onChange={(e) => setTwoPerPage(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
-                  />
-                  <span className="text-sm text-slate-700">Print 2 cards per page</span>
-                </label>
-              )}
-
-              <div className="border-t border-slate-200 pt-4 sm:pt-6">
+              {/* Front Panel */}
+              <div className="border-t border-slate-200 pt-6">
                 <FrontPanelEditor
                   mode={frontMode}
                   onModeChange={setFrontMode}
@@ -519,7 +507,8 @@ export default function CardMaker() {
                 />
               </div>
 
-              <div className="border-t border-slate-200 pt-4 sm:pt-6">
+              {/* Back Text */}
+              <div className="border-t border-slate-200 pt-6">
                 <TextEditor
                   text={text}
                   textStyle={textStyle}
@@ -528,27 +517,41 @@ export default function CardMaker() {
                 />
               </div>
 
-              <div className="border-t border-slate-200 pt-4 sm:pt-6">
+              {/* Background */}
+              <div className="border-t border-slate-200 pt-6">
                 <BackgroundEditor
                   background={pageBackground}
                   onChange={setPageBackground}
                 />
               </div>
 
-              {/* Instructions - hide on mobile to save space */}
-              <div className="hidden sm:block border-t border-slate-200 pt-6">
-                <h3 className="mb-2 text-sm font-medium text-slate-700">Instructions</h3>
-                <ol className="space-y-1 text-sm text-slate-600">
-                  <li>1. Select your card size</li>
-                  <li>2. Add an image for the front</li>
-                  <li>3. Enter text for the back</li>
-                  <li>4. Click "Print / Save as PDF"</li>
-                  <li>5. Print on A4 landscape, then fold</li>
+              {/* Quick Guide - desktop only */}
+              <div className="hidden lg:block border-t border-slate-200 pt-6">
+                <h3 className="text-sm font-medium text-slate-700 mb-2">Quick Guide</h3>
+                <ol className="space-y-1 text-xs text-slate-600">
+                  <li>1. Select card size</li>
+                  <li>2. Design front panel</li>
+                  <li>3. Add back text</li>
+                  <li>4. Customize background</li>
+                  <li>5. Download PDF</li>
                 </ol>
-                <p className="mt-3 text-xs text-slate-500">
-                  To save as PDF, choose "Save as PDF" in the print dialog destination.
-                </p>
               </div>
+            </div>
+
+            {/* Preview panel - sticky on desktop */}
+            <div className="sticky top-[57px] lg:top-6 z-[5] bg-slate-50 border-b border-slate-200 p-3 lg:bg-white lg:border lg:rounded-lg lg:p-6 lg:order-2 lg:max-h-[calc(100vh-3rem)] lg:overflow-auto">
+              <CardPreview
+                cardSizeId={cardSize}
+                image={image}
+                imageScale={imageScale}
+                text={text}
+                textStyle={textStyle}
+                customSize={customSize}
+                twoPerPage={twoPerPage}
+                pageBackground={pageBackground}
+                frontMode={frontMode}
+                frontText={frontText}
+              />
             </div>
           </div>
         </div>
