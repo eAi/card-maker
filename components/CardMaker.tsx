@@ -469,7 +469,24 @@ export default function CardMaker() {
         {/* Main content */}
         <div className="mx-auto max-w-7xl lg:px-4 lg:py-6">
           <div className="flex flex-col lg:grid lg:grid-cols-[400px_1fr] lg:gap-6 lg:items-start">
-            {/* Controls panel - scrollable */}
+            {/* Preview panel - first in DOM so it appears at top on mobile;
+                lg:order-2 moves it to the right column on desktop */}
+            <div className="sticky top-[57px] lg:top-6 z-[5] bg-slate-50 border-b border-slate-200 p-3 lg:bg-white lg:border lg:rounded-lg lg:p-6 lg:order-2 lg:max-h-[calc(100vh-3rem)] lg:overflow-auto">
+              <CardPreview
+                cardSizeId={cardSize}
+                image={image}
+                imageScale={imageScale}
+                text={text}
+                textStyle={textStyle}
+                customSize={customSize}
+                twoPerPage={twoPerPage}
+                pageBackground={pageBackground}
+                frontMode={frontMode}
+                frontText={frontText}
+              />
+            </div>
+
+            {/* Controls panel - scrollable; lg:order-1 moves it to the left column on desktop */}
             <div className="space-y-6 bg-white p-4 sm:p-6 lg:rounded-lg lg:border lg:border-slate-200 lg:order-1">
               {/* Card Settings */}
               <div>
@@ -536,22 +553,6 @@ export default function CardMaker() {
                   <li>5. Download PDF</li>
                 </ol>
               </div>
-            </div>
-
-            {/* Preview panel - sticky on desktop */}
-            <div className="sticky top-[57px] lg:top-6 z-[5] bg-slate-50 border-b border-slate-200 p-3 lg:bg-white lg:border lg:rounded-lg lg:p-6 lg:order-2 lg:max-h-[calc(100vh-3rem)] lg:overflow-auto">
-              <CardPreview
-                cardSizeId={cardSize}
-                image={image}
-                imageScale={imageScale}
-                text={text}
-                textStyle={textStyle}
-                customSize={customSize}
-                twoPerPage={twoPerPage}
-                pageBackground={pageBackground}
-                frontMode={frontMode}
-                frontText={frontText}
-              />
             </div>
           </div>
         </div>
