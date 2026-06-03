@@ -12,6 +12,7 @@ import {
   type FrontTextContent,
   DEFAULT_FRONT_TEXT,
   computeTextBlockStyle,
+  hexToRgba,
 } from '@/lib/frontText'
 
 interface CardPreviewProps {
@@ -176,14 +177,33 @@ function buildFilterDefs(
   )
 }
 
-function renderBlock(block: FrontTextContent['blocks'][number], filterSuffix: string) {
-  const needsFilter = (block.strokeEnabled && block.strokeWidth > 0) || block.shadowEnabled
+function renderBlock(
+  block: FrontTextContent['blocks'][number],
+  filterSuffix: string,
+  cssEffects = false,
+) {
+  // In PDF capture mode html2canvas doesn't support filter:url() references,
+  // so fall back to CSS text-stroke / text-shadow which it does support.
+  const cssFallback: React.CSSProperties = {}
+  if (cssEffects) {
+    if (block.shadowEnabled) {
+      cssFallback.textShadow = `${block.shadowX}pt ${block.shadowY}pt ${block.shadowBlur}pt ${hexToRgba(block.shadowColor, block.shadowOpacity)}`
+    }
+    if (block.strokeEnabled && block.strokeWidth > 0) {
+      cssFallback.WebkitTextStroke = `${block.strokeWidth}pt ${block.strokeColor}`
+      ;(cssFallback as Record<string, unknown>).paintOrder = 'stroke fill'
+    }
+  }
+
+  const needsFilter = !cssEffects && ((block.strokeEnabled && block.strokeWidth > 0) || block.shadowEnabled)
+
   return (
     <span
       key={block.id}
       style={{
         ...computeTextBlockStyle(block),
         marginBottom: '0.15em',
+        ...cssFallback,
         ...(needsFilter && { filter: `url(#fx-${block.id}${filterSuffix})` }),
       }}
     >
@@ -205,6 +225,7 @@ function FrontContent({
   panelHeightMm,
   filterSuffix = '',
   showPlaceholder = true,
+  cssEffects = false,
 }: {
   frontMode?: 'image' | 'text'
   frontText?: FrontTextContent
@@ -215,14 +236,16 @@ function FrontContent({
   panelHeightMm: number
   filterSuffix?: string
   showPlaceholder?: boolean
+  cssEffects?: boolean
 }) {
   const visibleBlocks = frontText.blocks.filter(b => b.text.trim())
 
   if (frontMode === 'text') {
-    // SVG defs live OUTSIDE the flex column so they can never affect its layout
-    const filterDefs = buildFilterDefs(visibleBlocks, filterSuffix)
+    // SVG defs live OUTSIDE the flex column so they can never affect its layout.
+    // Skip them entirely when using CSS fallback (pdf capture mode).
+    const filterDefs = cssEffects ? null : buildFilterDefs(visibleBlocks, filterSuffix)
     const blockSpans = visibleBlocks.length > 0
-      ? visibleBlocks.map(b => renderBlock(b, filterSuffix))
+      ? visibleBlocks.map(b => renderBlock(b, filterSuffix, cssEffects))
       : <span style={{ color: '#d1d5db', fontSize: '14pt' }}>Your text here</span>
 
     if (rotated) {
@@ -785,6 +808,7 @@ export function CardPrintView({
               panelHeightMm={flatDimensions.height}
               filterSuffix="-pr"
               showPlaceholder={false}
+              cssEffects={forPdf}
             />
           </div>
         </div>
@@ -914,6 +938,7 @@ function TwoPerPagePrintView({
                         panelHeightMm={foldPosition}
                         filterSuffix={`-pr-r${cardIndex}`}
                         showPlaceholder={false}
+                        cssEffects={forPdf}
                       />
                     </div>
 
@@ -985,6 +1010,7 @@ function TwoPerPagePrintView({
                         panelHeightMm={cardHeight}
                         filterSuffix={`-pr-${cardIndex}`}
                         showPlaceholder={false}
+                        cssEffects={forPdf}
                       />
                     </div>
                   </>
