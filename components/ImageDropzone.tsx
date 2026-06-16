@@ -32,11 +32,7 @@ export default function ImageDropzone({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png'],
-      'image/webp': ['.webp'],
-    },
+    accept: { 'image/*': [] },
     multiple: false,
   })
 
@@ -106,7 +102,7 @@ export default function ImageDropzone({
             )}
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            JPG, PNG, or WebP
+            JPG, PNG, HEIC, WebP and more
           </p>
         </div>
       )}
